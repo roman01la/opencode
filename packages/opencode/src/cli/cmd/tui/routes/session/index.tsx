@@ -58,6 +58,7 @@ import type { PromptInfo } from "../../component/prompt/history"
 import { DialogConfirm } from "@tui/ui/dialog-confirm"
 import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
+import { DialogSearch } from "./dialog-search"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
 import { Flag } from "@/flag/flag"
@@ -385,6 +386,28 @@ export function Session() {
             }}
             sessionID={route.sessionID}
             setPrompt={(promptInfo) => prompt.set(promptInfo)}
+          />
+        ))
+      },
+    },
+    {
+      title: "Search messages",
+      value: "session.search",
+      keybind: "session_search",
+      category: "Session",
+      slash: {
+        name: "search",
+      },
+      onSelect: (dialog) => {
+        dialog.replace(() => (
+          <DialogSearch
+            onMove={(messageID) => {
+              const child = scroll.getChildren().find((child) => {
+                return child.id === messageID
+              })
+              if (child) scroll.scrollBy(child.y - scroll.y - 1)
+            }}
+            sessionID={route.sessionID}
           />
         ))
       },
