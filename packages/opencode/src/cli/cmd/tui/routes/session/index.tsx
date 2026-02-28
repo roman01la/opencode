@@ -223,6 +223,24 @@ export function Session() {
 
   let scroll: ScrollBoxRenderable
   let prompt: PromptRef
+
+  // When the user explicitly scrolls up to read history, disable stickyScroll so
+  // streaming AI content does not jump them back to the bottom.
+  const [readingHistory, setReadingHistory] = createSignal(false)
+
+  function startReadingHistory() {
+    setReadingHistory(true)
+  }
+
+  function stopReadingHistory() {
+    setReadingHistory(false)
+  }
+
+  function isAtScrollBottom() {
+    if (!scroll || scroll.isDestroyed) return true
+    return scroll.scrollTop >= scroll.scrollHeight - scroll.viewport.height - 1
+  }
+
   const keybind = useKeybind()
 
   // Allow exit when in child session (prompt is hidden)
@@ -302,6 +320,7 @@ export function Session() {
   }
 
   function toBottom() {
+    stopReadingHistory()
     setTimeout(() => {
       if (!scroll || scroll.isDestroyed) return
       scroll.scrollTo(scroll.scrollHeight)
@@ -641,6 +660,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       onSelect: (dialog) => {
+        startReadingHistory()
         scroll.scrollBy(-scroll.height / 2)
         dialog.clear()
       },
@@ -653,6 +673,7 @@ export function Session() {
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollBy(scroll.height / 2)
+        if (isAtScrollBottom()) stopReadingHistory()
         dialog.clear()
       },
     },
@@ -663,6 +684,7 @@ export function Session() {
       category: "Session",
       disabled: true,
       onSelect: (dialog) => {
+        startReadingHistory()
         scroll.scrollBy(-1)
         dialog.clear()
       },
@@ -675,6 +697,7 @@ export function Session() {
       disabled: true,
       onSelect: (dialog) => {
         scroll.scrollBy(1)
+        if (isAtScrollBottom()) stopReadingHistory()
         dialog.clear()
       },
     },
@@ -685,6 +708,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       onSelect: (dialog) => {
+        startReadingHistory()
         scroll.scrollBy(-scroll.height / 4)
         dialog.clear()
       },
@@ -697,6 +721,7 @@ export function Session() {
       hidden: true,
       onSelect: (dialog) => {
         scroll.scrollBy(scroll.height / 4)
+        if (isAtScrollBottom()) stopReadingHistory()
         dialog.clear()
       },
     },
@@ -707,6 +732,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       onSelect: (dialog) => {
+        startReadingHistory()
         scroll.scrollTo(0)
         dialog.clear()
       },
@@ -718,6 +744,7 @@ export function Session() {
       category: "Session",
       hidden: true,
       onSelect: (dialog) => {
+        stopReadingHistory()
         scroll.scrollTo(scroll.scrollHeight)
         dialog.clear()
       },
@@ -768,7 +795,10 @@ export function Session() {
       keybind: "messages_previous",
       category: "Session",
       hidden: true,
-      onSelect: (dialog) => scrollToMessage("prev", dialog),
+      onSelect: (dialog) => {
+        startReadingHistory()
+        scrollToMessage("prev", dialog)
+      },
     },
     {
       title: "Copy last assistant message",
@@ -1032,7 +1062,14 @@ export function Session() {
                   foregroundColor: theme.border,
                 },
               }}
-              stickyScroll={true}
+              onMouseScroll={(event) => {
+                if (event.scroll?.direction === "up") {
+                  startReadingHistory()
+                } else if (event.scroll?.direction === "down") {
+                  if (isAtScrollBottom()) stopReadingHistory()
+                }
+              }}
+              stickyScroll={!readingHistory()}
               stickyStart="bottom"
               flexGrow={1}
               scrollAcceleration={scrollAcceleration()}
