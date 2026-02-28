@@ -1,7 +1,7 @@
 import { createMemo, onMount } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
-import type { TextPart, ToolPart } from "@opencode-ai/sdk/v2"
+import type { TextPart } from "@opencode-ai/sdk/v2"
 import { Locale } from "@/util/locale"
 import { useDialog } from "../../ui/dialog"
 
@@ -36,19 +36,18 @@ export function DialogSearch(props: {
         })
       } else if (message.role === "assistant") {
         for (const part of parts) {
-          if (part.type === "text" && !part.synthetic && !part.ignored && (part as TextPart).text.trim()) {
+          if (part.type === "text" && !part.synthetic && !part.ignored && part.text.trim()) {
             result.push({
-              title: (part as TextPart).text.replace(/\n/g, " "),
+              title: part.text.replace(/\n/g, " "),
               value: message.id,
               category: "Assistant",
               footer,
             })
             break
           }
-          if (part.type === "tool" && (part as ToolPart).state.status === "completed") {
-            const tool = part as ToolPart & { state: { status: "completed"; title: string } }
+          if (part.type === "tool" && part.state.status === "completed") {
             result.push({
-              title: `${tool.tool}: ${tool.state.title}`,
+              title: `${part.tool}: ${part.state.title}`,
               value: message.id,
               category: "Tool",
               footer,

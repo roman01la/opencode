@@ -1481,6 +1481,7 @@ export class Session2 extends HeyApiClient {
       sessionID: string
       directory?: string
       limit?: number
+      before_id?: string
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1492,6 +1493,7 @@ export class Session2 extends HeyApiClient {
             { in: "path", key: "sessionID" },
             { in: "query", key: "directory" },
             { in: "query", key: "limit" },
+            { in: "query", key: "before_id" },
           ],
         },
       ],
