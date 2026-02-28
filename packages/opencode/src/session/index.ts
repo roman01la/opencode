@@ -513,10 +513,13 @@ export namespace Session {
     z.object({
       sessionID: Identifier.schema("session"),
       limit: z.number().optional(),
+      before_id: z.string().optional(),
     }),
     async (input) => {
       const result = [] as MessageV2.WithParts[]
       for await (const msg of MessageV2.stream(input.sessionID)) {
+        // Skip messages that are >= before_id (i.e. newer or equal); only collect older ones
+        if (input.before_id && msg.info.id >= input.before_id) continue
         if (input.limit && result.length >= input.limit) break
         result.push(msg)
       }

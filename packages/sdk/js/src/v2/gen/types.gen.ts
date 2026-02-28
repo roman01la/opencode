@@ -3478,6 +3478,10 @@ export type SessionMessagesData = {
   query?: {
     directory?: string
     limit?: number
+    /**
+     * Return only messages with ID before this value
+     */
+    before_id?: string
   }
   url: "/session/{sessionID}/message"
 }

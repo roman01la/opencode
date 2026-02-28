@@ -105,7 +105,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       return globalSync.child(directory)
     }
     const absolute = (path: string) => (current()[0].path.directory + "/" + path).replace("//", "/")
-    const messagePageSize = 400
+    const messagePageSize = 50
     const inflight = new Map<string, Promise<void>>()
     const inflightDiff = new Map<string, Promise<void>>()
     const inflightTodo = new Map<string, Promise<void>>()
@@ -122,14 +122,14 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       return undefined
     }
 
-    const limitFor = (count: number) => {
-      if (count <= messagePageSize) return messagePageSize
-      return Math.ceil(count / messagePageSize) * messagePageSize
-    }
-
-    const fetchMessages = async (input: { client: typeof sdk.client; sessionID: string; limit: number }) => {
+    const fetchMessages = async (input: {
+      client: typeof sdk.client
+      sessionID: string
+      limit: number
+      before_id?: string
+    }) => {
       const messages = await retry(() =>
-        input.client.session.messages({ sessionID: input.sessionID, limit: input.limit }),
+        input.client.session.messages({ sessionID: input.sessionID, limit: input.limit, before_id: input.before_id }),
       )
       const items = (messages.data ?? []).filter((x) => !!x?.info?.id)
       const session = items
@@ -150,6 +150,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       setStore: Setter
       sessionID: string
       limit: number
+      before_id?: string
     }) => {
       const key = keyFor(input.directory, input.sessionID)
       if (meta.loading[key]) return
@@ -158,7 +159,17 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       await fetchMessages(input)
         .then((next) => {
           batch(() => {
-            input.setStore("message", input.sessionID, reconcile(next.session, { key: "id" }))
+            if (input.before_id) {
+              // Cursor-based: prepend older messages to existing store
+              input.setStore("message", input.sessionID, (existing: Message[] | undefined) => {
+                if (!existing) return next.session
+                const merged = [...next.session, ...existing]
+                merged.sort((a, b) => cmp(a.id, b.id))
+                return merged
+              })
+            } else {
+              input.setStore("message", input.sessionID, reconcile(next.session, { key: "id" }))
+            }
             for (const message of next.part) {
               input.setStore("part", message.id, reconcile(message.part, { key: "id" }))
             }
@@ -238,9 +249,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const hydrated = meta.limit[key] !== undefined
           if (hasSession && hasMessages && hydrated) return
 
-          const count = store.message[sessionID]?.length ?? 0
-          const limit = hydrated ? (meta.limit[key] ?? messagePageSize) : limitFor(count)
-
           const sessionReq = hasSession
             ? Promise.resolve()
             : retry(() => client.session.get({ sessionID })).then((session) => {
@@ -267,7 +275,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
                   client,
                   setStore,
                   sessionID,
-                  limit,
+                  limit: messagePageSize,
                 })
 
           return runInflight(inflight, key, () => Promise.all([sessionReq, messagesReq]).then(() => {}))
@@ -327,18 +335,21 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           async loadMore(sessionID: string, count = messagePageSize) {
             const directory = sdk.directory
             const client = sdk.client
-            const [, setStore] = globalSync.child(directory)
+            const [store, setStore] = globalSync.child(directory)
             const key = keyFor(directory, sessionID)
             if (meta.loading[key]) return
             if (meta.complete[key]) return
 
-            const currentLimit = meta.limit[key] ?? messagePageSize
+            // Use cursor-based pagination: fetch only messages older than the oldest loaded message
+            const existing = store.message[sessionID]
+            const before_id = existing?.[0]?.id
             await loadMessages({
               directory,
               client,
               setStore,
               sessionID,
-              limit: currentLimit + count,
+              limit: count,
+              before_id,
             })
           },
         },

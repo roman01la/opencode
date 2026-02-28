@@ -927,9 +927,10 @@ export function Prompt(props: PromptProps) {
                   return
                 }
 
-                // trim ' from the beginning and end of the pasted content. just
-                // ' and nothing else
-                const filepath = pastedContent.replace(/^'+|'+$/g, "").replace(/\\ /g, " ")
+                // trim quotes from the beginning and end of the pasted content
+                // also handle file:// URLs by stripping the scheme
+                const rawpath = pastedContent.replace(/^['"]+|['"]+$/g, "").replace(/\\ /g, " ")
+                const filepath = rawpath.startsWith("file://") ? decodeURIComponent(rawpath.slice(7)) : rawpath
                 const isUrl = /^(https?):\/\//.test(filepath)
                 if (!isUrl) {
                   try {

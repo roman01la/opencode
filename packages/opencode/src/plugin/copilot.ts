@@ -31,15 +31,6 @@ export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
 
         if (provider && provider.models) {
           for (const model of Object.values(provider.models)) {
-            model.cost = {
-              input: 0,
-              output: 0,
-              cache: {
-                read: 0,
-                write: 0,
-              },
-            }
-
             // TODO: re-enable once messages api has higher rate limits
             // TODO: move some of this hacky-ness to models.dev presets once we have better grasp of things here...
             // const base = baseURL ?? model.api.url
